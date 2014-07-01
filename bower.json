@@ -1,0 +1,29 @@
+{
+  "name": "ldp_client",
+  "version": "0.1.0",
+  "authors": [
+    "Antonio Garrote <antoniogarrote@gmail.com>"
+  ],
+  "description": "JS Client for LDP",
+  "main": "ldp_client.js",
+  "moduleType": [
+    "amd"
+  ],
+  "keywords": [
+    "LDP",
+    "linked Data"
+  ],
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "requirejs": "~2.1.14",
+    "jquery": "~2.1.1"
+  },
+  "devDependencies": {}
+}
