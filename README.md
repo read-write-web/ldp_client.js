@@ -51,3 +51,84 @@ Modifications in any domain object or the underlying RDF graph should generate t
 This mechanism should make it easy to integrate the library with other JavaScript application frameworks using some glue code.
 
 
+Building
+--------
+
+The project uses NodeJS Grunt tool to build the project and Bower to manage JS dependencies.
+
+First install Grunt and Bower dependencies using NPM from the root directory of the project:
+ 
+ ```bash
+ $ npm install
+ ```
+ The dependencies for the library can be retrieved using bower:
+ 
+ ```bash
+ $ bower install
+ ```
+ 
+ After this, the library can be built with the 'build' target:
+  ```bash
+ $ grunt build
+ ```
+ 
+ The resulting source code will be generated in the 'dist' directory in the top level directory of the project.
+ 
+ Deploying
+ ---------
+
+ This is work in progress. This is just a brief description of how get something running in the browser.
+ To deploy the code copy the 'dist' directory and the 'bower_components' directories into the assets directory of a rww-play LDP server:
+ 
+ ```bash
+ $ mkdir -p rww-play/public/client
+ $ cp -rf bower_components rww-play/public/bower_components
+ $ cp -rf dist/* rww-play/public/client/
+ ```
+ 
+ Then you can write some HTML loading the main script in the library, using require.js (included in the Bower deps)
+ 
+ ```bash
+ $ emacs rww-play/public/client/index.html
+ ```
+ 
+ ```html
+ <html>
+   <head>
+     <script data-main="main" src="../bower_components/requirejs/require.js"></script>
+   </head>
+   <body>
+     <h1>Testing the library...</h1>
+   </body>
+ </html>
+ ```
+ 
+ You can now test the library from any sub-domain in the rww-play server e.g:
+ 
+ https://test.localhost:8443/assets/client/index.html
+ 
+ If everything goes ok, you should see something like this in the console:
+ 
+ ```text
+ =================================================== main.js:36
+ ** success GET container:  main.js:37
+ / main.js:38
+ =================================================== main.js:53
+ ** success PARSE container RDF:  main.js:54
+ Store.Store {functionMap: Object, customFns: Object, engine: QueryEngine.QueryEngine, rdf: RDFJSInterface.RDFEnvironment, registerCustomFunction: function…}
+  main.js:55
+ =================================================== main.js:70
+ ** success SPARQL querying the container:  main.js:71
+ <> a <http://www.w3.org/ns/ldp#BasicContainer> main.js:73
+ <> a <http://www.w3.org/ns/ldp#Container> main.js:73
+ =================================================== main.js:91
+ ** success POST resource:  main.js:92
+ https://test.localhost:8443/23269d69d7 main.js:93
+ =================================================== main.js:110
+ ** success PUT resource:  main.js:111
+ <> a <foaf:Person>; <foaf:name> "foo2" . main.js:112
+ =================================================== main.js:127
+ ** success DELETE resource:  main.js:128
+ null 
+ ```
+  
