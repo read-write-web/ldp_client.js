@@ -7,17 +7,19 @@
      * This module includes all the required logic for fetching LDP resources from a LDP server.
      * The current implementation uses jQuery as the provider of the underlying AJAX logic.
      */
-    define("ldp_client/networking", ["jquery", "rdf_store"], function($, RDFStore) {
+    define("ldp_client/networking", ["jquery", "rdf_store", "async", "underscore"], function($, RDFStore, async, _) {
         var Networking = {};
 
         /**
          * Auxiliar function used to build a new store graph from a given turtle document.
+         *
+         * @param baseURI base URI that will be used to resolve relative URIs
          * @param turtlePayload RDF data in a Turtle serialization.
-         * @cb Callback function
+         * @param cb Callback function
          */
-        var makeGraph = function(turtlePayload,cb) {
+        var makeGraph = function(baseURI, turtlePayload,cb) {
             RDFStore.create(function(store){
-                store.load('text/n3',turtlePayload, function(success){
+                store.load('text/n3',turtlePayload, {baseURI: baseURI}, function(success){
                     if(success) {
                         cb(false,store);
                     } else {
@@ -49,6 +51,7 @@
 
         /**
          * Gets the resource representation for the provided resource URL and media type.
+         *
          * @param cb callback function
          */
         Networking.RESTResource.prototype.get = function(cb) {
@@ -65,7 +68,7 @@
                     cb(false,that);
 
                 }).fail(function(err){
-                    cb(true, err)
+                    cb(true, err.status, err);
                 });
             }
         };
@@ -73,6 +76,7 @@
 
         /**
          * Updates the representation of the remote resource using the local representation and media type.
+         *
          * @param cb callback function
          */
         Networking.RESTResource.prototype.put = function(cb) {
@@ -87,7 +91,7 @@
                 }).done(function(){
                     cb(false,that);
                 }).fail(function(err){
-                    cb(true, err)
+                    cb(true, err.status, err);
                 });
             }
         };
@@ -95,6 +99,7 @@
         /**
          * Tries to persist the current representation of the resource in a remote container resource.
          * The remote service should provide the URL of the newly created resource using the 'Location' header.
+         *
          * @param containerURL
          * @param cb callback function
          */
@@ -116,7 +121,7 @@
                         cb(false,that);
                     }
                 }).fail(function(err){
-                    cb(true, err)
+                    cb(true, err.status, err);
                 });
             }
 
@@ -124,7 +129,8 @@
 
         /**
          * Destroys the resource in the remote service.
-         * If it is successful the resource URL is set to null;
+         * If it is successful the resource URL is set to null.
+         *
          * @param cb callback function
          */
         Networking.RESTResource.prototype.delete = function(cb) {
@@ -138,7 +144,7 @@
                     that.url = null;
                     cb(false,that);
                 }).fail(function(err){
-                    cb(true, err)
+                    cb(true, err.status, err);
                 });
             }
         };
@@ -146,16 +152,25 @@
         /**
          * Model for a LDP resource.
          * It is designed as a RESTful resource using turtle as the representation format.
+         *
          * @param url Location of the LDP resource
          * @constructor
          */
         Networking.LDPResource =  function(url) {
             var options = {
-                url: url,
                 mediaType: 'text/turtle'
             };
+
+            if(url != null) options.url = url;
+
             Networking.RESTResource.call(this,options);
+
+            // When the representation is parsed, the resulting grpah will be stored in
+            // this property
             this.graph = null;
+            // A dictionary where we will store results for rel queries.
+            // It must be cleaned every single time the graph is parsed
+            this.queryCache = {}
         };
         Networking.LDPResource.prototype = new Networking.RESTResource();
         Networking.LDPResource.prototype.constructor = Networking.LDPResource;
@@ -163,19 +178,113 @@
         /**
          * Parses the triples in the resource representation building an associated RDF graph
          * that can be queried.
+         *
          * @param cb
          */
         Networking.LDPResource.prototype.parse = function(cb) {
             var that = this;
-            makeGraph(this.representation, function(err, store){
+            makeGraph(this.url, this.representation, function(err, store){
                 if(err) {
                     cb(true, "Error parsing RDF representation for LDP resource")
                 } else {
+                    that.queryCache = {}; // Clean the cache
                     that.graph = store;
                     cb(false,that)
                 }
             });
         };
+
+        /**
+         * A function that will run a SPARQL query over the retrieved resource.
+         * If the resource representation hasn't been parsed yet, it will be automatically parsed.
+         * The results will be returned using the low level interface provided by RDFStore.js
+         *
+         * @param sparql SPARQL query to run
+         * @param cb
+         */
+        Networking.LDPResource.prototype.query = function(sparql, cb){
+            var that = this;
+            var operations = [], buildGraphOperation, queryGraphOperation, result, error;
+
+            // If the graph is not ready, we first need to parse the representation
+            if(this.graph == null) {
+                buildGraphOperation = function(cb){
+                    that.parse(function(err,res){
+                        if(err) {
+                            error = res;
+                            cb(err);
+                        } else {
+                            cb();
+                        }
+                    })
+                };
+                operations.push(buildGraphOperation);
+            }
+
+            // Now we can run query over the parsed graph
+            queryGraphOperation = function(cb) {
+                that.graph.execute(sparql, function(success, triples){
+                    if(success) {
+                        result = triples;
+                        cb();
+                    } else {
+                        error = triples;
+                        cb(true)
+                    }
+                });
+            };
+            operations.push(queryGraphOperation);
+
+            async.series(operations, function(){
+                if(result != null) {
+                    cb(false, result);
+                } else {
+                    cb(true, error);
+                }
+            });
+        };
+
+
+        /**
+         * Retrieves the values related to the container URL in the resource RDF graph by a RDF property.
+         *
+         * @param property RDF property of the relation to search.
+         * @param cb
+         */
+        Networking.LDPResource.prototype.rel = function(property, cb){
+            if(this.queryCache[property] != null) {
+                cb(false, this.queryCache[property]);
+            } else  {
+                this.query("SELECT ?o  WHERE { <"+this.url+"> <"+property+"> ?o }", function(err, results){
+                    if(err) {
+                        cb(err, results);
+                    } else {
+                        results = _.map(results, function(triples){
+                            return triples.o.value;
+                        });
+
+                        cb(false, results);
+                    }
+                });
+            }
+        };
+
+        /**
+         * Model for a LDP Basic Container
+         * It is a subtype of the LDPResource object with additional logic to list its contained resources.
+         * object.
+         *
+         * @param url Location of the LDP resource
+         * @constructor
+         */
+        Networking.LDPBasicContainer =  function(url) {
+            Networking.LDPResource.call(this,url);
+            this.contents = null;
+        };
+        Networking.LDPBasicContainer.prototype = new Networking.LDPResource();
+        Networking.LDPBasicContainer.prototype.constructor = Networking.LDPBasicContainer;
+
+
 
         return Networking;
     });
