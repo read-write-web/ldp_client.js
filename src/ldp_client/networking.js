@@ -226,7 +226,7 @@
                 operations.push(buildGraphOperation);
             }
 
-            // Now we can run query over the parsed graph
+            // Now we can run the query over the parsed graph
             queryGraphOperation = function(cb) {
                 that.graph.execute(sparql, function(success, triples){
                     if(success) {
@@ -271,9 +271,7 @@
                     if(err) {
                         cb(err, results);
                     } else {
-                        results = _.map(results, function(triples){
-                            return triples.o.value;
-                        });
+                        results = _.map(results, function(triples){ return triples.o.value; });
                         // save in cache
                         that.queryCache[property] = results;
 
@@ -299,6 +297,53 @@
         Networking.LDPBasicContainer.prototype.constructor = Networking.LDPBasicContainer;
 
 
+        /**
+         * This function returns meta information about a potential LDP Resource
+         *
+         * @param url
+         * @param cb
+         */
+        Networking.LDPResource.discover = function(url,cb){
+            $.ajax(url,{
+                type: "HEAD"
+            }).done(function(_res, _success, xhr){
+                // Let's parse the Link header.
+                // Sample value: '<.acl>; rel=acl, <http://www.w3.org/ns/ldp#BasicContainer>; rel=type'
+                var header = xhr.getResponseHeader("Link"), metadata = {}, components;
+                if(header != null) {
+                    components = header.split(/,\s+/g);
+                    metadata = _.reduce(components, function(metadata, component) {
+                            var parts = component.split(/;\s+/);
+                            var urlPart = parts[0];
+                            var relPart = parts[1];
+
+                            urlPart = urlPart.replace(/^</,"").replace(/>$/,"");
+                            if(urlPart.indexOf("://") === -1) {
+                                urlPart = url + urlPart;
+                            }
+
+                            if(relPart.indexOf("rel=") !== -1){
+                                relPart = relPart.replace("rel=","");
+                            }
+
+                            metadata[relPart] = urlPart;
+                            return metadata;
+                        },
+                        metadata);
+
+                }
+                // Let's parse the Allow header
+                // Sample value: 'Allow:OPTIONS, GET, HEAD, PUT, PATCH, DELETE, POST'
+                header = xhr.getResponseHeader("Allow");
+                if(header != null) {
+                    metadata["allow"] = header.split(/,\s+/)
+                }
+
+                cb(false,metadata);
+            }).fail(function(err){
+                cb(true,err);
+            });
+        };
 
         return Networking;
     });

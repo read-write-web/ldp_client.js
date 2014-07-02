@@ -18,6 +18,23 @@
 
         async.series([
 
+            // Discover information about the LDP container resource
+            function(cb){
+                LDPClient.LDPResource.discover("/", function(err, metadata){
+                    if (err) {
+                        console.log("===================================================");
+                        console.log("** ERROR DISCOVERING container: ");
+                        console.log(err);
+                        cb(err);
+                    } else {
+                        console.log("===================================================");
+                        console.log("** SUCCESS DISCOVERING container: ");
+                        console.log(metadata);
+                        cb();
+                    }
+                });
+            },
+
             // Get the LDP container resource
             function (cb) {
                 container = new LDPClient.LDPResource("/");
