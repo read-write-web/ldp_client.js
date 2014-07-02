@@ -7,8 +7,25 @@
      * This module includes all the required logic for fetching LDP resources from a LDP server.
      * The current implementation uses jQuery as the provider of the underlying AJAX logic.
      */
-    define("ldp_client/networking", ["jquery"], function($) {
+    define("ldp_client/networking", ["jquery", "rdf_store"], function($, RDFStore) {
         var Networking = {};
+
+        /**
+         * Auxiliar function used to build a new store graph from a given turtle document.
+         * @param turtlePayload RDF data in a Turtle serialization.
+         * @cb Callback function
+         */
+        var makeGraph = function(turtlePayload,cb) {
+            RDFStore.create(function(store){
+                store.load('text/n3',turtlePayload, function(success){
+                    if(success) {
+                        cb(false,store);
+                    } else {
+                        cb(true,"Error loading turtle document into graph");
+                    }
+                })
+            });
+        };
 
         /**
          * Base class for all resources.
@@ -138,9 +155,27 @@
                 mediaType: 'text/turtle'
             };
             Networking.RESTResource.call(this,options);
+            this.graph = null;
         };
         Networking.LDPResource.prototype = new Networking.RESTResource();
         Networking.LDPResource.prototype.constructor = Networking.LDPResource;
+
+        /**
+         * Parses the triples in the resource representation building an associated RDF graph
+         * that can be queried.
+         * @param cb
+         */
+        Networking.LDPResource.prototype.parse = function(cb) {
+            var that = this;
+            makeGraph(this.representation, function(err, store){
+                if(err) {
+                    cb(true, "Error parsing RDF representation for LDP resource")
+                } else {
+                    that.graph = store;
+                    cb(false,that)
+                }
+            });
+        };
 
         return Networking;
     });
