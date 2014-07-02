@@ -20,7 +20,7 @@
 
             // Discover information about the LDP container resource
             function(cb){
-                LDPClient.LDPResource.discover("/", function(err, metadata){
+                LDPClient.LDPResource.metadata("/", function(err, metadata){
                     if (err) {
                         console.log("===================================================");
                         console.log("** ERROR DISCOVERING container: ");
@@ -192,14 +192,57 @@
                         console.log("===================================================");
                         console.log("** SUCCESS GET removed resource failed with code: ");
                         console.log(res);
-                        cb(err);
+                        cb();
                     } else {
                         console.log("===================================================");
                         console.log("** ERROR GET removed resource succeeded: ");
                         console.log(fooResource.representation);
-                        cb();
+                        cb(true);
                     }
                 });
+            },
+
+            // Discovering remote LDP resources
+            function(cb) {
+                var operations = [];
+
+                operations.push(function(cb){
+                    LDPClient.LDPResource.discover("/",function(err, resource){
+                        if(err) {
+                            cb(true,null);
+                        } else {
+                            cb(null,resource);
+                        }
+                    })
+                });
+
+                operations.push(function(cb){
+                    LDPClient.LDPResource.discover("/card",function(err, resource){
+                        if(err) {
+                            cb(true,null);
+                        } else {
+                            cb(null,resource);
+                        }
+                    });
+                });
+
+                async.parallel(
+                    operations,
+                    function(err, results){
+                        if (err) {
+                            console.log("===================================================");
+                            console.log("** ERROR discovering resources: ");
+                            console.log(res);
+                            cb(err);
+                        } else {
+                            console.log("===================================================");
+                            console.log("** SUCCESS discovering resources: ");
+                            console.log(results[0].url +" => "+ results[0].constructor.name);
+                            console.log(results[1].url +" => "+results[1].constructor.name);
+                            cb();
+                        }
+                    }
+                );
             }
 
 

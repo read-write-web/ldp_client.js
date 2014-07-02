@@ -46,13 +46,14 @@
          * @param options url, representation and mediaType
          * @constructor
          */
-        Networking.RESTResource = function(options) {
+        function RESTResource(options) {
             options = (options || {});
             this.url = options.url;
             this.representation = options.representation;
             this.mediaType = options.mediaType;
-        };
-        Networking.RESTResource.prototype.constructor = Networking.RESTResource;
+        }
+        Networking.RESTResource = RESTResource;
+        Networking.RESTResource.prototype.constructor = RESTResource;
 
         /**
          * Gets the resource representation for the provided resource URL and media type.
@@ -161,7 +162,7 @@
          * @param url Location of the LDP resource
          * @constructor
          */
-        Networking.LDPResource =  function(url) {
+         function LDPResource(url) {
             var options = {
                 mediaType: 'text/turtle'
             };
@@ -175,10 +176,13 @@
             this.graph = null;
             // A dictionary where we will store results for rel queries.
             // It must be cleaned every single time the graph is parsed
-            this.queryCache = {}
-        };
+            this.queryCache = {};
+            // The metadata about the LDP resource will be stored here
+            this.meta = null;
+        }
+        Networking.LDPResource = LDPResource;
         Networking.LDPResource.prototype = new Networking.RESTResource();
-        Networking.LDPResource.prototype.constructor = Networking.LDPResource;
+        Networking.LDPResource.prototype.constructor = LDPResource;
 
         /**
          * Parses the triples in the resource representation building an associated RDF graph
@@ -282,6 +286,31 @@
         };
 
         /**
+         * Fetches the meta-data about this resource.
+         *
+         * @param cb
+         */
+        Networking.LDPResource.prototype.metadata = function(cb) {
+            var that = this;
+            if(this.meta != null){
+                cb(false, this.meta);
+            } else {
+                if(this.url == null) {
+                    throw "Cannot fetch meta-data for a LDP resource without URL";
+                } else {
+                    LDPResource.metadata(this.url, function(err,metadata){
+                        if(err) {
+                            cb(true, metadata);
+                        } else {
+                            that.meta = metadata;
+                            cb(false, metadata);
+                        }
+                    })
+                }
+            }
+        };
+
+        /**
          * Model for a LDP Basic Container
          * It is a subtype of the LDPResource object with additional logic to list its contained resources.
          * object.
@@ -289,12 +318,13 @@
          * @param url Location of the LDP resource
          * @constructor
          */
-        Networking.LDPBasicContainer =  function(url) {
+        function LDPBasicContainer(url) {
             Networking.LDPResource.call(this,url);
             this.contents = null;
-        };
+        }
+        Networking.LDPBasicContainer = LDPBasicContainer;
         Networking.LDPBasicContainer.prototype = new Networking.LDPResource();
-        Networking.LDPBasicContainer.prototype.constructor = Networking.LDPBasicContainer;
+        Networking.LDPBasicContainer.prototype.constructor = LDPBasicContainer;
 
 
         /**
@@ -303,7 +333,7 @@
          * @param url
          * @param cb
          */
-        Networking.LDPResource.discover = function(url,cb){
+        Networking.LDPResource.metadata = function(url,cb){
             $.ajax(url,{
                 type: "HEAD"
             }).done(function(_res, _success, xhr){
@@ -342,6 +372,36 @@
                 cb(false,metadata);
             }).fail(function(err){
                 cb(true,err);
+            });
+        };
+
+        /**
+         * This function parses the right type of RESTful resource for the provided URL, using the
+         * resource meta-data.
+         * The resulting resource object can be a RESTful resource, a LDP resource or a LDP container.
+         *
+         * @param url
+         * @param cb
+         */
+        Networking.LDPResource.discover = function(url, cb){
+            Networking.LDPResource.metadata(url, function(err, metadata){
+                var resource;
+                if(err) {
+                    cb(err, metadata);
+                } else {
+                    // Match the type of resource found and build the right object for it
+                    if(metadata['type'] == null) {
+                        resource = new Networking.RESTResource({url: url});
+                    } else if(metadata['type'] == "http://www.w3.org/ns/ldp#BasicContainer") {
+                        resource = new Networking.LDPBasicContainer(url);
+                        resource.meta = metadata;
+                    } else {
+                        resource = new Networking.LDPResource(url);
+                        resource.meta = metadata;
+                    }
+
+                    resource.get(cb)
+                }
             });
         };
 
