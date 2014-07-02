@@ -19,6 +19,11 @@
          */
         var makeGraph = function(baseURI, turtlePayload,cb) {
             RDFStore.create(function(store){
+                // Register usual namespaces
+                store.registerDefaultProfileNamespaces();
+                // Register LDP namespace
+                store.registerDefaultNamespace("ldp","http://www.w3.org/ns/ldp#");
+
                 store.load('text/n3',turtlePayload, {baseURI: baseURI}, function(success){
                     if(success) {
                         cb(false,store);
@@ -252,16 +257,25 @@
          * @param cb
          */
         Networking.LDPResource.prototype.rel = function(property, cb){
+            var that = this, queryProperty;
             if(this.queryCache[property] != null) {
                 cb(false, this.queryCache[property]);
             } else  {
-                this.query("SELECT ?o  WHERE { <"+this.url+"> <"+property+"> ?o }", function(err, results){
+                if(this.graph.rdf.resolve(property) != null) {
+                    queryProperty = property
+                } else {
+                    queryProperty = "<"+property+">";
+                }
+                this.query("SELECT ?o  WHERE { <"+this.url+"> "+queryProperty+" ?o }", function(err, results){
+
                     if(err) {
                         cb(err, results);
                     } else {
                         results = _.map(results, function(triples){
                             return triples.o.value;
                         });
+                        // save in cache
+                        that.queryCache[property] = results;
 
                         cb(false, results);
                     }

@@ -12,7 +12,7 @@
      * This code is just for quick testing the server.
      */
     require(["ldp_client", "async"], function(LDPClient, async) {
-        var container = new LDPClient.LDPResource("/");
+        var container = null;
         var fooResource = null;
         var fooResourceURL = null;
 
@@ -20,6 +20,7 @@
 
             // Get the LDP container resource
             function (cb) {
+                container = new LDPClient.LDPResource("/");
                 container.get(function (err, cont) {
                     if (err) {
                         console.log("===================================================");
@@ -73,7 +74,7 @@
 
             // Retrieves a property from the resource
             function(cb) {
-                container.rel("http://www.w3.org/ns/ldp#contains", function(err, results){
+                container.rel("ldp:contains", function(err, results){
                     if(err) {
                         console.log("===================================================");
                         console.log("** ERROR finding RDF values with rel: ");
