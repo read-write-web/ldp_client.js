@@ -261,27 +261,50 @@
          * @param cb
          */
         Networking.LDPResource.prototype.rel = function(property, cb){
-            var that = this, queryProperty;
+            var that = this, queryProperty, operations = [];
             if(this.queryCache[property] != null) {
                 cb(false, this.queryCache[property]);
             } else  {
-                if(this.graph.rdf.resolve(property) != null) {
-                    queryProperty = property
-                } else {
-                    queryProperty = "<"+property+">";
+                if(this.graph == null) {
+                    operations.push(function(cb){
+                        that.parse(function(err){
+                            if(err) {
+                                cb(err);
+                            } else {
+                                cb()
+                            }
+                        })
+                    })
                 }
-                this.query("SELECT ?o  WHERE { <"+this.url+"> "+queryProperty+" ?o }", function(err, results){
-
-                    if(err) {
-                        cb(err, results);
+                operations.push(function(cb){
+                    if(that.graph.rdf.resolve(property) != null) {
+                        queryProperty = property
                     } else {
-                        results = _.map(results, function(triples){ return triples.o.value; });
-                        // save in cache
-                        that.queryCache[property] = results;
-
-                        cb(false, results);
+                        queryProperty = "<"+property+">";
                     }
+                    that.query("SELECT ?o  WHERE { <"+that.url+"> "+queryProperty+" ?o }", function(err, results){
+
+                        if(err) {
+                            cb(err);
+                        } else {
+                            results = _.map(results, function(triples){ return triples.o.value; });
+                            // save in cache
+                            that.queryCache[property] = results;
+                            cb(null,results);
+                        }
+                    });
                 });
+
+                async.series(
+                    operations,
+                    function(err, results) {
+                        if(err) {
+                            cb(true, err);
+                        } else {
+                            cb(false, results.pop());
+                        }
+                    }
+                )
             }
         };
 
@@ -320,12 +343,48 @@
          */
         function LDPBasicContainer(url) {
             Networking.LDPResource.call(this,url);
-            this.contents = null;
         }
         Networking.LDPBasicContainer = LDPBasicContainer;
         Networking.LDPBasicContainer.prototype = new Networking.LDPResource();
         Networking.LDPBasicContainer.prototype.constructor = LDPBasicContainer;
 
+
+        /**
+         * Function that retrieves all the contained resources in this container.
+         *
+         * @param cb
+         */
+        Networking.LDPBasicContainer.prototype.contents = function(cb){
+            var that = this;
+            if(this.queryCache["__contents__"] != null) {
+                cb(false, this.queryCache["__contents__"]);
+            } else {
+                this.rel("ldp:contains", function(err, resources){
+                    var operations = _.map(resources, function(resource){
+                        return function(cb){
+                            Networking.LDPResource.discover(resource, function(err, res){
+                                if(err) {
+                                    cb(true, err);
+                                } else {
+                                    cb(null, res);
+                                }
+                            });
+                        }
+                    });
+                    async.parallel(
+                        operations,
+                        function(err, results) {
+                            if(err) {
+                                cb(true, err);
+                            } else {
+                                that.queryCache["__contents__"] = results;
+                                cb(false, results);
+                            }
+                        }
+                    );
+                });
+            }
+        };
 
         /**
          * This function returns meta information about a potential LDP Resource

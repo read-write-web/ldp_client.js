@@ -243,6 +243,24 @@
                         }
                     }
                 );
+            },
+
+            // Retrieve the contents of a container
+            function(cb){
+                LDPClient.LDPResource.discover("/", function(err, container){
+                    container.contents(function(err, contents){
+                        if(err) {
+                            console.log("===================================================");
+                            console.log("** ERROR retrieving container contents: ");
+                            console.log(res);
+                            cb(err);
+                        } else {
+                            console.log("===================================================");
+                            console.log("** SUCCESS retrieving container contents: ");
+                            console.log(contents);
+                        }
+                    });
+                });
             }
 
 
