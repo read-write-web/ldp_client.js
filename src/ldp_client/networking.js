@@ -343,6 +343,7 @@
          */
         function LDPBasicContainer(url) {
             Networking.LDPResource.call(this,url);
+            // Default representation
         }
         Networking.LDPBasicContainer = LDPBasicContainer;
         Networking.LDPBasicContainer.prototype = new Networking.LDPResource();
