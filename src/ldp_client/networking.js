@@ -24,6 +24,10 @@
                 // Register LDP namespace
                 store.registerDefaultNamespace("ldp","http://www.w3.org/ns/ldp#");
 
+                turtlePayload = turtlePayload.replace(/<>/g,"<"+baseURI+">");
+                if(baseURI[baseURI.length - 1] !== "#" && baseURI[baseURI.length -1 ] !== "/") {
+                    baseURI = baseURI + "/";
+                }
                 store.load('text/n3',turtlePayload, {baseURI: baseURI}, function(success){
                     if(success) {
                         cb(false,store);
