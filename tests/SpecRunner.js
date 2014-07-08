@@ -210,7 +210,6 @@
         specs.push('spec/ldp_client/networking_spec');
 
         $(function(){
-            debugger;
             require(specs, function(){
                 var env = jasmine.getEnv();
                 env.execute();
