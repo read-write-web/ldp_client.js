@@ -208,6 +208,7 @@
         bootstrapJasmine();
 
         specs.push('spec/ldp_client/networking_spec');
+        specs.push('spec/ldp_client/rdf_spec');
 
         $(function(){
             require(specs, function(){

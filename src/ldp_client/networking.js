@@ -7,36 +7,8 @@
      * This module includes all the required logic for fetching LDP resources from a LDP server.
      * The current implementation uses jQuery as the provider of the underlying AJAX logic.
      */
-    define("ldp_client/networking", ["jquery", "rdf_store", "async", "underscore"], function($, RDFStore, async, _) {
+    define("ldp_client/networking", ["jquery", "ldp_client/rdf", "async", "underscore"], function($, RDF, async, _) {
         var Networking = {};
-
-        /**
-         * Auxiliar function used to build a new store graph from a given turtle document.
-         *
-         * @param baseURI base URI that will be used to resolve relative URIs
-         * @param turtlePayload RDF data in a Turtle serialization.
-         * @param cb Callback function
-         */
-        var makeGraph = function(baseURI, turtlePayload,cb) {
-            RDFStore.create(function(store){
-                // Register usual namespaces
-                store.registerDefaultProfileNamespaces();
-                // Register LDP namespace
-                store.registerDefaultNamespace("ldp","http://www.w3.org/ns/ldp#");
-
-                turtlePayload = turtlePayload.replace(/<>/g,"<"+baseURI+">");
-                if(baseURI[baseURI.length - 1] !== "#" && baseURI[baseURI.length -1 ] !== "/") {
-                    baseURI = baseURI + "/";
-                }
-                store.load('text/n3',turtlePayload, {baseURI: baseURI}, function(success){
-                    if(success) {
-                        cb(false,store);
-                    } else {
-                        cb(true,"Error loading turtle document into graph");
-                    }
-                })
-            });
-        };
 
         /**
          * Base class for all resources.
@@ -196,7 +168,7 @@
          */
         Networking.LDPResource.prototype.parse = function(cb) {
             var that = this;
-            makeGraph(this.url, this.representation, function(err, store){
+            RDF.makeGraph(this.url, this.representation, function(err, store){
                 if(err) {
                     cb(true, "Error parsing RDF representation for LDP resource")
                 } else {
@@ -313,9 +285,31 @@
         };
 
         /**
+         * Updates the representation of a LDPResource based on the contents
+         * stored in its RDF graph.
+         *
+         * @param cb callback function
+         */
+        Networking.LDPResource.prototype.construct = function(cb){
+            if(this.graph == null) {
+                cb(false);
+            } else {
+                var that = this, re = new RegExp("<"+this.url+">","g");
+                this.graph.execute("CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", function(success, graph){
+                    if(success) {
+                        that.representation = graph.toNT().replace(re,"<>");
+                        cb(false, that)
+                    } else {
+                        cb(true, graph);
+                    }
+                });
+            }
+        };
+
+        /**
          * Fetches the meta-data about this resource.
          *
-         * @param cb
+         * @param cb callback function
          */
         Networking.LDPResource.prototype.metadata = function(cb) {
             var that = this;
@@ -390,6 +384,7 @@
                 });
             }
         };
+
 
         /**
          * This function returns meta information about a potential LDP Resource

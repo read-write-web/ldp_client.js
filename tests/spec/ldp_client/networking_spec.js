@@ -107,7 +107,7 @@ define(["ldp_client/networking", "async", "underscore"], function(Networking, as
             });
 
             it("should be possible to create and modify resources in a container", function(done){
-                var container,fooResource, fooResourceUrl;
+                var container,fooResource;
                 async.series([
                     // Get the LDP container resource
                     function (cb) {
@@ -193,6 +193,15 @@ define(["ldp_client/networking", "async", "underscore"], function(Networking, as
                                 console.log(fooResource.representation);
                                 cb();
                             }
+                        });
+                    },
+
+                    // Rebuild the RDF representation of the resource
+                    function(cb) {
+                        var oldRepresentation = fooResource.representation;
+                        fooResource.construct(function(err, res){
+                            debugger;
+                            cb();
                         });
                     },
 
