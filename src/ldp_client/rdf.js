@@ -40,6 +40,48 @@
             });
         };
 
+        /**
+         * Exports the provided RDF graph as a turtle serialized RDF file
+         *
+         * @param graph
+         * @param cb
+         */
+        RDF.exportGraph = function(graph, cb) {
+            graph.execute("CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", function(success, graph){
+                if(success) {
+                    cb(false, grapht.toNT());
+                } else {
+                    cb(true, graph);
+                }
+            });
+        };
+
+        /**
+         * Inserts a turtle serialized document into the RDF provided graph.
+         *
+         * @param graph
+         * @param turtlePayload
+         * @param cb
+         */
+        RDF.insertIntoGraph = function(graph, turtlePayload, cb) {
+            graph.execute("INSERT DATA { "+turtlePayload+" }", function(success, msg){
+                cb(!success,msg);
+            });
+        };
+
+        /**
+         * Removes the triples in the provided turtle document from the provided RDF graph.
+         *
+         * @param graph
+         * @param turtlePayload
+         * @param cb
+         */
+        RDF.removeFromGraph = function(graph, turtlePayload, cb) {
+            graph.execute("DELETE DATA { "+turtlePayload+" }", function(success, msg){
+                cb(!success,msg);
+            });
+        };
+
         return RDF;
     });
 }).call(this);

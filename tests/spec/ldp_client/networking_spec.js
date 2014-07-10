@@ -200,7 +200,6 @@ define(["ldp_client/networking", "async", "underscore"], function(Networking, as
                     function(cb) {
                         var oldRepresentation = fooResource.representation;
                         fooResource.construct(function(err, res){
-                            debugger;
                             cb();
                         });
                     },
