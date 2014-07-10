@@ -208,13 +208,14 @@
 
             // Now we can run the query over the parsed graph
             queryGraphOperation = function(cb) {
-                that.graph.execute(sparql, function(success, triples){
-                    if(success) {
-                        result = triples;
-                        cb();
-                    } else {
+                RDF.queryGraph(that.graph,sparql, function(err, triples){
+                    if(err) {
                         error = triples;
                         cb(true)
+                    } else {
+                        result = triples;
+                        cb();
+
                     }
                 });
             };
@@ -295,12 +296,12 @@
                 cb(false);
             } else {
                 var that = this, re = new RegExp("<"+this.url+">","g");
-                this.graph.execute("CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", function(success, graph){
-                    if(success) {
+                RDF.queryGraph(this.graph, "CONSTRUCT { ?s ?p ?o } WHERE { ?s ?p ?o }", function(err, graph){
+                    if(err) {
+                        cb(true, graph);
+                    } else {
                         that.representation = graph.toNT().replace(re,"<>");
                         cb(false, that)
-                    } else {
-                        cb(true, graph);
                     }
                 });
             }

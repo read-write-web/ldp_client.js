@@ -82,6 +82,20 @@
             });
         };
 
+
+        /**
+         * Runs a SPARQL query over the provided graph
+         *
+         * @param graph
+         * @param sparql
+         * @param cb
+         */
+        RDF.queryGraph = function(graph, sparql, cb) {
+            graph.execute(sparql, function(success, results) {
+                cb(!success, results);
+            })
+        };
+
         return RDF;
     });
 }).call(this);
